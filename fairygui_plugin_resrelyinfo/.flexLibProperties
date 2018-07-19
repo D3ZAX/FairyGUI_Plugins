@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="AutoGenerateCodePlugin"/>
+    <classEntry path="Base64Decoder"/>
+    <classEntry path="BatExecutePlugin"/>
+    <classEntry path="ExportNoZipPlugIn"/>
+    <classEntry path="FileTool"/>
+    <classEntry path="Main"/>
+    <classEntry path="PinYinUtils"/>
+    <classEntry path="PlugInMain"/>
+    <classEntry path="fairygui.editor.plugin.ICallback"/>
+    <classEntry path="fairygui.editor.plugin.IEditorUIPackage"/>
+    <classEntry path="fairygui.editor.plugin.IEditorUIProject"/>
+    <classEntry path="fairygui.editor.plugin.IFairyGUIEditor"/>
+    <classEntry path="fairygui.editor.plugin.IMenuBar"/>
+    <classEntry path="fairygui.editor.plugin.IPublishData"/>
+    <classEntry path="fairygui.editor.plugin.IPublishHandler"/>
+    <classEntry path="ExportRelyTree"/>
+    <classEntry path="StringUtil"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>
