@@ -32,6 +32,8 @@ package
 			
 			_relyTreeExporter = new ExportRelyTree(editor);
 			
+			_editor.registerPublishHandler(_relyTreeExporter);
+			
 			_editor.menuBar.addMenu("export_tool", "导出工具", new PopupMenu(), "help");
 			_editor.menuBar.getMenu("export_tool").addItem("导出依赖关系表", onClickExportRelyTree);
 		}

@@ -4,15 +4,18 @@ package {
 	
 	import fairygui.editor.plugin.IEditorUIPackage;
 	import fairygui.editor.plugin.IFairyGUIEditor;
+	import fairygui.editor.plugin.IPublishHandler;
+	import fairygui.editor.plugin.ICallback;
+	import fairygui.editor.plugin.IPublishData;
 
-	public class ExportRelyTree {
+	public class ExportRelyTree implements IPublishHandler{
 		private var _editor: IFairyGUIEditor;
 		
 		public function ExportRelyTree(editor:IFairyGUIEditor) {
 			_editor = editor;
 		}
 		
-		public function exportRelyInfo(): void {
+		public function exportRelyInfo(noSuccessTips: Boolean = false): void {
 			var packageIdToData: Dictionary = new Dictionary();
 			var comInfoDic: Dictionary = new Dictionary();
 			var txInfoDic: Dictionary = new Dictionary();
@@ -96,7 +99,7 @@ package {
 			
 			if (warningInfos.length > 0) {
 				_editor.alert(warningInfos.join("\n"));
-			} else {
+			} else if (!noSuccessTips) {
 				_editor.alert("导出成功！");
 			}
 			
@@ -210,6 +213,12 @@ package {
 			} else {
 				return packageName + "@atlas" + atlas;
 			}
+		}
+		
+		public function doExport(data:IPublishData, callback:ICallback):Boolean {
+			this.exportRelyInfo(true);
+			callback.callOnSuccess();
+			return true;
 		}
 	}
 }
