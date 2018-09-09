@@ -2,11 +2,11 @@ package {
 	import flash.filesystem.File;
 	import flash.utils.Dictionary;
 	
+	import fairygui.editor.plugin.ICallback;
 	import fairygui.editor.plugin.IEditorUIPackage;
 	import fairygui.editor.plugin.IFairyGUIEditor;
-	import fairygui.editor.plugin.IPublishHandler;
-	import fairygui.editor.plugin.ICallback;
 	import fairygui.editor.plugin.IPublishData;
+	import fairygui.editor.plugin.IPublishHandler;
 
 	public class ExportRelyTree implements IPublishHandler{
 		private var _editor: IFairyGUIEditor;
@@ -22,7 +22,8 @@ package {
 			
 			var comRelyDic: Object = new Object();
 			
-			var warningInfos: Array = new Array(); 
+			var warningInfos: Array = new Array();
+			var logInfos: Array = new Array();
 			
 			var packageDirs: Array = FileTool.getSubFolders(_editor.project.basePath + File.separator + "assets");
 
@@ -33,7 +34,6 @@ package {
 				
 				var packageXML:XML = new XML(FileTool.readFile(packageDir.nativePath + File.separator + "package.xml"));
 				var resourceListXML:XMLList = packageXML.child("resources").children();
-				
 				for each (var item:XML in resourceListXML) {
 					switch(item.name().toString()) {
 						case "component":
@@ -49,13 +49,14 @@ package {
 								componentInfo.export = false;
 							}
 							
-							comInfoDic[item.attribute("id").toString()] = componentInfo;
+							comInfoDic[packageData.id + item.attribute("id").toString()] = componentInfo;
 							break;
 						case "image":
 							var textureInfo: Object = {};
 							textureInfo.name = item.attribute("name").toString();
 							textureInfo.packageId = packageData.id;
 							textureInfo.atlas = item.attribute("atlas").toString();
+							textureInfo.id = item.attribute("id").toString();
 							var exportedT: XMLList = item.attribute("exported");
 							if (exportedT) {
 								textureInfo.export = exportedT.toString() === "true";
@@ -63,7 +64,7 @@ package {
 								textureInfo.export = false;
 							}
 							
-							txInfoDic[item.attribute("id").toString()] = textureInfo;
+							txInfoDic[packageData.id + item.attribute("id").toString()] = textureInfo;
 							break;
 					}
 				}
@@ -83,24 +84,28 @@ package {
 				exportObj.atlas = new Array();
 				var textureAtlas: Dictionary = new Dictionary();
 				for (var textureId: String in exportObj.dicTexture) {
-					textureAtlas[getTextureResKey(packageIdToData[txInfoDic[textureId].packageId].name, textureId, txInfoDic[textureId].atlas)] = true;
+					textureAtlas[getTextureResKey(packageIdToData[txInfoDic[textureId].packageId].name, txInfoDic[textureId].id, txInfoDic[textureId].atlas)] = true;
 				}
 				for (var atlas: String in textureAtlas) {
 					exportObj.atlas.push(atlas);
 				}
 				delete exportObj.dicTexture;
 			}
-			
+
 			var publishJson: Object = JSON.parse(FileTool.readFile(_editor.project.basePath + File.separator + "settings" + File.separator + "Publish.json"));
 			
 			var publishPath: String = publishJson.path;
 			
 			FileTool.writeFile(publishPath + File.separator + "ui_info" + ".json", JSON.stringify(comRelyDic));
-			
+
 			if (warningInfos.length > 0) {
 				_editor.alert(warningInfos.join("\n"));
 			} else if (!noSuccessTips) {
 				_editor.alert("导出成功！");
+			}
+
+			if (logInfos.length > 0) {
+				logFile(logInfos);
 			}
 			
 //			var projectXML:XML = new XML(FileTool.readFile(_editor.project.basePath + File.separator + "project.xml"));
@@ -130,11 +135,11 @@ package {
 				
 				var componentXML:XML = new XML(FileTool.readFile(componentInfo.path));
 				var displayListXMLList:XMLList = componentXML.child("displayList").children();
-				
+
 				for each (var item:XML in displayListXMLList) {
 					switch (item.name().toString()) {
 						case "image":
-							var textureId: String = item.attribute("src").toString()
+							var textureId: String = (item.@pkg != undefined ? item.attribute("pkg").toString() : componentInfo.packageId) + item.attribute("src").toString();
 							exportObj.dicTexture[textureId] = true;
 							exportObj.dicPackage[txInfoDic[textureId].packageId] = true;
 							if (componentInfo.export && !txInfoDic[textureId].export) {
@@ -145,38 +150,34 @@ package {
 							var urlXMLList: XMLList = item.attribute("url");
 							if (urlXMLList) {
 								var url: String = urlXMLList.toString();
-								for (var packId: String in packageIdToData) {
-									var startIndex: int = 5;
-									if (url.indexOf(packId) === startIndex) {
-										var resId: String = url.substr(startIndex + packId.length);
-										if (comInfoDic[resId] && comInfoDic[resId].packageId === packId) {
-											recursionToSetRelyTreeOfComponent(comInfoDic[resId], comInfoDic, txInfoDic, packageIdToData, comRelyDic, warningInfos);
-											for (var packageId: String in comRelyDic[comInfoDic[resId].name].dicPackage) {
-												exportObj.dicPackage[packageId] = true;
-											}
-											for (var texId: String in comRelyDic[comInfoDic[resId].name].dicTexture) {
-												exportObj.dicTexture[texId] = true;
-											}
-											if (componentInfo.export && !comInfoDic[resId].export) {
-												warningInfos.push(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[resId].name, packageIdToData[comInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
-											}
-											break;
-										} else if (txInfoDic[resId] && txInfoDic[resId].packageId === packId) {
-											exportObj.dicTexture[resId] = true;
-											exportObj.dicPackage[txInfoDic[resId].packageId] = true;
-											
-											if (componentInfo.export && !txInfoDic[resId].export) {
-												warningInfos.push(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[resId].name, packageIdToData[txInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
-											}
-	
-											break;
-										}
+								var startIndex: int = 5;
+								var resId: String = url.substr(startIndex);
+								if (comInfoDic[resId]) {
+									recursionToSetRelyTreeOfComponent(comInfoDic[resId], comInfoDic, txInfoDic, packageIdToData, comRelyDic, warningInfos);
+									for (var packageId: String in comRelyDic[comInfoDic[resId].name].dicPackage) {
+										exportObj.dicPackage[packageId] = true;
 									}
+									for (var texId: String in comRelyDic[comInfoDic[resId].name].dicTexture) {
+										exportObj.dicTexture[texId] = true;
+									}
+									if (componentInfo.export && !comInfoDic[resId].export) {
+										warningInfos.push(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[resId].name, packageIdToData[comInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+									}
+									break;
+								} else if (txInfoDic[resId]) {
+									exportObj.dicTexture[resId] = true;
+									exportObj.dicPackage[txInfoDic[resId].packageId] = true;
+									
+									if (componentInfo.export && !txInfoDic[resId].export) {
+										warningInfos.push(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[resId].name, packageIdToData[txInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+									}
+									
+									break;
 								}
 							}
 							break;
 						case "component":
-							var comId: String = item.attribute("src").toString();
+							var comId: String = (item.@pkg != undefined ? item.attribute("pkg").toString() : componentInfo.packageId) + item.attribute("src").toString();
 							recursionToSetRelyTreeOfComponent(comInfoDic[comId], comInfoDic, txInfoDic, packageIdToData, comRelyDic, warningInfos);
 							for (var pId: String in comRelyDic[comInfoDic[comId].name].dicPackage) {
 								exportObj.dicPackage[pId] = true;
@@ -215,10 +216,18 @@ package {
 			}
 		}
 		
-		public function doExport(data:IPublishData, callback:ICallback):Boolean {
+		public function doExport(data:IPublishData, callback:ICallback): Boolean {
 			this.exportRelyInfo(true);
 			callback.callOnSuccess();
 			return true;
+		}
+		
+		public function logFile(logMsg: Array): void {
+			var publishJson: Object = JSON.parse(FileTool.readFile(_editor.project.basePath + File.separator + "settings" + File.separator + "Publish.json"));
+			
+			var publishPath: String = publishJson.path;
+			
+			FileTool.writeFile(publishPath + File.separator + "log" + ".txt", logMsg.join("\n"));
 		}
 	}
 }
