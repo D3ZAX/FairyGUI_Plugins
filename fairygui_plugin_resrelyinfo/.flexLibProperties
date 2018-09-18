@@ -18,6 +18,7 @@
     <classEntry path="fairygui.editor.plugin.IPublishHandler"/>
     <classEntry path="ExportRelyTree"/>
     <classEntry path="StringUtil"/>
+    <classEntry path="PluginLogger"/>
   </includeClasses>
   <includeResources/>
   <namespaceManifests/>
