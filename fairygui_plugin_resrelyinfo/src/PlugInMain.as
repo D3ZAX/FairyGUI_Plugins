@@ -39,7 +39,7 @@ package
 			_pluginLogger = new PluginLogger(editor);
 			
 			
-			_relyTreeExporter = new ExportRelyTree(editor, _pluginLogger.warningInfos, _pluginLogger.logInfos);
+			_relyTreeExporter = new ExportRelyTree(editor, _pluginLogger);
 			
 			_editor.registerPublishHandler(_relyTreeExporter);
 			
@@ -57,11 +57,7 @@ package
 		
 		private function onClickExportRelyTree(evt:Event): void
 		{
-			try{
-				_relyTreeExporter.exportRelyInfo();
-			} catch(err: Error) {
-				_pluginLogger.warningInfos.push(err.toString());
-			}
+			_relyTreeExporter.tryExportRelyInfo();
 			_pluginLogger.checkWarningAndLog();
 		}
 		

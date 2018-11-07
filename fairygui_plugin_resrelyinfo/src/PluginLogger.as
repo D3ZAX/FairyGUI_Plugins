@@ -30,6 +30,10 @@ package {
 			return true;
 		}
 		
+		public function getWarningInfo(): String {
+			return this._warningInfos.join("\n");
+		}
+		
 		public function logFile(logMsg: Array): void {
 			var publishJson: Object = JSON.parse(FileTool.readFile(_editor.project.basePath + File.separator + "settings" + File.separator + "Publish.json"));
 			
@@ -49,6 +53,10 @@ package {
 				_editor.alert("导出成功！");
 			}
 			
+			this.cleanAllLogInfo();
+		}
+		
+		public function cleanAllLogInfo(): void {
 			this._logInfos.splice(0, this._logInfos.length);
 			this._warningInfos.splice(0, this._warningInfos.length);
 		}

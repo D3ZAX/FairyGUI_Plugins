@@ -2,8 +2,6 @@ package {
 	import flash.filesystem.File;
 	import flash.utils.Dictionary;
 	
-	import mx.effects.effectClasses.PauseInstance;
-	
 	import fairygui.editor.plugin.ICallback;
 	import fairygui.editor.plugin.IEditorUIPackage;
 	import fairygui.editor.plugin.IFairyGUIEditor;
@@ -12,16 +10,50 @@ package {
 
 	public class ExportRelyTree implements IPublishHandler{
 		private var _editor: IFairyGUIEditor;
-		private var _warningInfos: Array;
-		private var _logInfos: Array;
+		private var _pluginLogger: PluginLogger;
+		private var _lastRunningFunc: String;
+		private var _lastOperate: String;
+		private var _lastVisitPack: String;
+		private var _lastVisitCom: String;
+		private var _lastVisitComType: String;
 		
-		public function ExportRelyTree(editor:IFairyGUIEditor, warningInfos: Array, logInfos: Array) {
+		public function ExportRelyTree(editor: IFairyGUIEditor, pluginLogger: PluginLogger) {
 			_editor = editor;
-			this._warningInfos = warningInfos;
-			this._logInfos
+			this._pluginLogger = pluginLogger;
+		}
+		
+		public function tryExportRelyInfo(): Boolean {
+			try {
+				exportRelyInfo();
+				return true;
+			} catch (e: Error) {
+				this._pluginLogger.warningInfos.splice(0, 0, e.message);
+				if (this._lastRunningFunc) {
+					this.logWarning("最后运行的方法（程序）: " + this._lastRunningFunc);
+				}
+				if (this._lastOperate) {
+					this.logWarning("最后的操作（程序）: " + this._lastOperate);
+				}
+				if (this._lastVisitPack) {
+					this.logWarning("最后访问的包名（极有可能出错）: " + this._lastVisitPack);
+				}
+				if (this._lastVisitCom) {
+					this.logWarning("最后访问的组件名（极有可能出错）: " + this._lastVisitCom);
+				}
+				if (this._lastVisitComType) {
+					this.logWarning("最后访问的组件类型: " + this._lastVisitComType);
+				}
+				return false;
+			}
+			return false;
 		}
 		
 		public function exportRelyInfo(): void {
+			this._lastRunningFunc = "exportRelyInfo()";
+			this._lastVisitPack = null;
+			this._lastVisitComType = null;
+			this._lastVisitCom = null;
+
 			var packageIdToData: Dictionary = new Dictionary();
 			var comInfoDic: Dictionary = new Dictionary();
 			var txInfoDic: Dictionary = new Dictionary();
@@ -38,15 +70,20 @@ package {
 			};
 			
 			// Read and record commmon res
+			this._lastOperate = "Read and record commmon res";
 			var comSettings: Object = JSON.parse(FileTool.readFile(_editor.project.basePath + File.separator + "settings/Common.json"));
 			if (comSettings.buttonClickSound != "") {
 				comSounds.push(comSettings.buttonClickSound);
 			}
-			
+
+
 			// Read and record ui rely tree
 			// Read package ui info
+			this._lastOperate = "Read package ui info";
+			var comNameDic: Dictionary = new Dictionary();
 			var packageDirs: Array = FileTool.getSubFolders(_editor.project.basePath + File.separator + "assets");
 			for each (var packageDir: File in packageDirs) {
+				this._lastVisitPack = packageDir.name;
 				var packageData: IEditorUIPackage = _editor.getPackage(packageDir.name);
 				
 				packageIdToData[packageData.id] = packageData;
@@ -57,6 +94,12 @@ package {
 				for each (var item:XML in resourceListXML) {
 					switch(item.name().toString()) {
 						case "component":
+							this._lastVisitComType = "component";
+							this._lastVisitCom = item.attribute("name").toString();
+							if (comNameDic[this._lastVisitCom]) {
+								this.logWarning("Component: " + this._lastVisitCom + " in Package: " + this._lastVisitPack + " repeated, this may cause error!");
+							}
+							comNameDic[this._lastVisitCom] = true;
 							var componentInfo: Object = new Object();
 							componentInfo.path = packageDir.nativePath + item.attribute("path").toString() + item.attribute("name").toString();
 							var name: String = item.attribute("name").toString();
@@ -73,6 +116,8 @@ package {
 							comInfoDic[packageData.id + componentInfo.id] = componentInfo;
 							break;
 						case "image":
+							this._lastVisitComType = "image";
+							this._lastVisitCom = item.attribute("name").toString();
 							var textureInfo: Object = {};
 							textureInfo.name = item.attribute("name").toString();
 							textureInfo.packageId = packageData.id;
@@ -88,6 +133,8 @@ package {
 							txInfoDic[packageData.id + textureInfo.id] = textureInfo;
 							break;
 						case "sound":
+							this._lastVisitComType = "sound";
+							this._lastVisitCom = item.attribute("name").toString();
 							var soundInfo: Object = {};
 							soundInfo.name = item.attribute("name").toString();
 							soundInfo.packageId = packageData.id;
@@ -105,12 +152,18 @@ package {
 				}
 			}
 			
-			// read single component rely info and record rely info
+			// Read single component rely info and record rely info
+			this._lastOperate = "Read single component rely info and record rely info";
 			for each (var compInfo: Object in comInfoDic) {
 				recursionToSetRelyTreeOfComponent(compInfo, comInfoDic, txInfoDic, packageIdToData, comRelyDic);
 			}
+			this._lastRunningFunc = "exportRelyInfo()";
+			this._lastVisitPack = null
+			this._lastVisitComType = null;
+			this._lastVisitCom = null;
 			
-			// sort rely info 
+			// Sort rely info
+			this._lastOperate = "Sort rely info";
 			for each (var exportObj: Object in comRelyDic) {
 				// package
 				var temArr: Array = new Array();
@@ -127,6 +180,7 @@ package {
 				var textureAtlas: Dictionary = new Dictionary();
 				for (var textureId: String in exportObj.dicTexture) {
 					textureAtlas[getTextureResKey(packageIdToData[txInfoDic[textureId].packageId].name, txInfoDic[textureId].id, txInfoDic[textureId].atlas)] = true;
+					this._lastRunningFunc = "exportRelyInfo()";
 				}
 				for (var atlas: String in textureAtlas) {
 					temArr.push(atlas);
@@ -141,6 +195,7 @@ package {
 				for (var soundId: String in exportObj.dicSound) {
 					if (comSounds.indexOf(soundId) < 0) {
 						temArr.push(this.getSoundResKey(soundId, packageIdToData, soundInfoDic));
+						this._lastRunningFunc = "exportRelyInfo()";
 					}
 				}
 				if (temArr.length > 0) {
@@ -150,10 +205,12 @@ package {
 				delete exportObj.dicSound;
 			}
 			
-			// common res
+			// Deal with common res
+			this._lastOperate = "Deal with common res";
 			for each (var sound: String in comSounds) {
 				// sound
 				comRes.sound.push(this.getSoundResKey(sound, packageIdToData, soundInfoDic));
+				this._lastRunningFunc = "exportRelyInfo()";
 			}
 			
 			var publishJson: Object = JSON.parse(FileTool.readFile(_editor.project.basePath + File.separator + "settings" + File.separator + "Publish.json"));
@@ -179,6 +236,10 @@ package {
 		}
 		
 		public function recursionToSetRelyTreeOfComponent(componentInfo: Object, comInfoDic: Dictionary, txInfoDic: Dictionary, packageIdToData: Dictionary, comRelyDic: Object): void {
+			this._lastRunningFunc = "recursionToSetRelyTreeOfComponent()";
+			this._lastVisitComType = "component";
+			this._lastVisitCom = componentInfo.name;
+			this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
 			if (!comRelyDic[componentInfo.name]) {
 				var exportObj: Object = new Object();
 				exportObj.dicTexture = new Object();
@@ -195,14 +256,29 @@ package {
 					switch (item.name().toString()) {
 						case "image":
 							var textureId: String = (item.@pkg != undefined ? item.attribute("pkg").toString() : componentInfo.packageId) + item.attribute("src").toString();
+							// log
+							this._lastVisitComType = "image";
+							this._lastVisitCom = txInfoDic[textureId].name;
+							this._lastVisitPack = packageIdToData[txInfoDic[textureId].packageId].name;
+							
 							exportObj.dicTexture[textureId] = true;
 							exportObj.dicPackage[txInfoDic[textureId].packageId] = true;
 							if (componentInfo.export && !txInfoDic[textureId].export) {
-								this._warningInfos.push(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[textureId].name, packageIdToData[txInfoDic[textureId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+								this.logWarning(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[textureId].name, packageIdToData[txInfoDic[textureId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
 							}
 							break;
 						case "loader":
-							var urlXMLList: XMLList = item.attribute("url");
+						case "list":
+							var attrName: String;
+							switch (item.name().toString()) {
+								case "loader":
+									attrName = "url";
+									break;
+								case "list":
+									attrName = "defaultItem";
+									break;
+							}
+							var urlXMLList: XMLList = item.attribute(attrName);
 							if (urlXMLList) {
 								var url: String = urlXMLList.toString();
 								var startIndex: int = 5;
@@ -216,15 +292,20 @@ package {
 										exportObj.dicTexture[texId] = true;
 									}
 									if (componentInfo.export && !comInfoDic[resId].export) {
-										this._warningInfos.push(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[resId].name, packageIdToData[comInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+										this.logWarning(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[resId].name, packageIdToData[comInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
 									}
 									break;
 								} else if (txInfoDic[resId]) {
+									// log
+									this._lastVisitComType = "image";
+									this._lastVisitCom = txInfoDic[resId].name;
+									this._lastVisitPack = packageIdToData[txInfoDic[resId].packageId].name;
+									
 									exportObj.dicTexture[resId] = true;
 									exportObj.dicPackage[txInfoDic[resId].packageId] = true;
 									
 									if (componentInfo.export && !txInfoDic[resId].export) {
-										this._warningInfos.push(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[resId].name, packageIdToData[txInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+										this.logWarning(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[resId].name, packageIdToData[txInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
 									}
 									
 									break;
@@ -252,7 +333,7 @@ package {
 							}
 							
 							if (componentInfo.export && !comInfoDic[comId].export) {
-								this._warningInfos.push(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[comId].name, packageIdToData[comInfoDic[comId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+								this.logWarning(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[comId].name, packageIdToData[comInfoDic[comId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
 							}
 							break;
 					}
@@ -262,6 +343,7 @@ package {
 		}
 		
 		public function getTextureResKey(packageName: String, textureId: String, atlas: String): String {
+			this._lastRunningFunc = "getTextureResKey()";
 			if (!atlas) {
 				atlas = "0";
 			}
@@ -283,6 +365,7 @@ package {
 		}
 		
 		public function getSoundResKey(sound: String, packageIdToData: Dictionary, soundInfoDic: Dictionary): String {
+			this._lastRunningFunc = "getSoundResKey()";
 			var soundInfo: Object;
 			switch (_editor.project.type) {
 				case "egret":
@@ -295,14 +378,21 @@ package {
 		}
 		
 		public function doExport(data:IPublishData, callback:ICallback): Boolean {
-			try{
-				this.exportRelyInfo();
+			if (this.tryExportRelyInfo()) {
 				callback.callOnSuccess();
-			} catch (err: Error) {
-				callback.addMsg(err.message);
+			} else {
+				callback.addMsg(this._pluginLogger.getWarningInfo());
 				callback.callOnFail();
 			}
 			return true;
+		}
+		
+		private function logFile(str: String): void {
+			this._pluginLogger.logInfos.push(str);
+		}
+		
+		private function logWarning(str: String): void {
+			this._pluginLogger.warningInfos.push(str);
 		}
 	}
 }
