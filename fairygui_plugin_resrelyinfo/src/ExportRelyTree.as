@@ -97,7 +97,7 @@ package {
 							this._lastVisitComType = "component";
 							this._lastVisitCom = item.attribute("name").toString();
 							if (comNameDic[this._lastVisitCom]) {
-								this.logWarning("Component: " + this._lastVisitCom + " in Package: " + this._lastVisitPack + " repeated, this may cause error!");
+								this.logWarning("Component: \"" + this._lastVisitCom + "\" in Package: \"" + this._lastVisitPack + "\" repeated, this may cause error!");
 							}
 							comNameDic[this._lastVisitCom] = true;
 							var componentInfo: Object = new Object();
