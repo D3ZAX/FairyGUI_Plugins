@@ -236,10 +236,11 @@ package {
 		}
 		
 		public function recursionToSetRelyTreeOfComponent(componentInfo: Object, comInfoDic: Dictionary, txInfoDic: Dictionary, packageIdToData: Dictionary, comRelyDic: Object): void {
-			this._lastRunningFunc = "recursionToSetRelyTreeOfComponent()";
+			// log
 			this._lastVisitComType = "component";
 			this._lastVisitCom = componentInfo.name;
 			this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
+			this._lastRunningFunc = "recursionToSetRelyTreeOfComponent()";			
 			if (!comRelyDic[componentInfo.name]) {
 				var exportObj: Object = new Object();
 				exportObj.dicTexture = new Object();
@@ -253,6 +254,10 @@ package {
 				var displayListXMLList:XMLList = componentXML.child("displayList").children();
 
 				for each (var item:XML in displayListXMLList) {
+					// log
+					this._lastVisitComType = "component";
+					this._lastVisitCom = componentInfo.name;
+					this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
 					switch (item.name().toString()) {
 						case "image":
 							var textureId: String = (item.@pkg != undefined ? item.attribute("pkg").toString() : componentInfo.packageId) + item.attribute("src").toString();
@@ -382,6 +387,7 @@ package {
 				callback.callOnSuccess();
 			} else {
 				callback.addMsg(this._pluginLogger.getWarningInfo());
+				this._pluginLogger.cleanAllLogInfo();
 				callback.callOnFail();
 			}
 			return true;
