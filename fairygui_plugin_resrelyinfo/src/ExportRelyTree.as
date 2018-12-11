@@ -71,11 +71,13 @@ package {
 			
 			// Read and record commmon res
 			this._lastOperate = "Read and record commmon res";
-			var comSettings: Object = JSON.parse(FileTool.readFile(_editor.project.basePath + File.separator + "settings/Common.json"));
-			if (comSettings.buttonClickSound != "") {
-				comSounds.push(comSettings.buttonClickSound);
+			var fileContent: String = FileTool.readFile(_editor.project.basePath + File.separator + "settings/Common.json");
+			if (fileContent) {
+				var comSettings: Object = JSON.parse(fileContent);
+				if (comSettings.buttonClickSound != "") {
+					comSounds.push(comSettings.buttonClickSound);
+				}
 			}
-
 
 			// Read and record ui rely tree
 			// Read package ui info
