@@ -14,10 +14,10 @@ package
 	 */
 	public class PlugInMain
 	{
-		private var _editor:IFairyGUIEditor;
-		private var _relyTreeExporter:ExportRelyTree;
+		private var _editor: IFairyGUIEditor;
+		private var _relyTreeExporter: ExportRelyTree;
 		private var _pluginLogger: PluginLogger;
-		
+		private var _functionCheck: FunctionCheck;
 		
 		
 		public function PlugInMain(editor:IFairyGUIEditor)
@@ -41,6 +41,8 @@ package
 			
 			_relyTreeExporter = new ExportRelyTree(editor, _pluginLogger);
 			
+			_functionCheck = new FunctionCheck(editor, _pluginLogger);
+			
 			_editor.registerPublishHandler(_relyTreeExporter);
 			
 			
@@ -48,6 +50,9 @@ package
 			
 			_editor.menuBar.addMenu("export_tool", "导出工具", new PopupMenu(), "help");
 			_editor.menuBar.getMenu("export_tool").addItem("导出依赖关系表", onClickExportRelyTree);
+			
+			_editor.menuBar.addMenu("check_tool", "检查工具", new PopupMenu(), "export_tool");
+			_editor.menuBar.getMenu("check_tool").addItem("检查翻转控件", onClickCheckFlip);
 		}
 		
 		private function onClickSet(evt:Event): void
@@ -59,6 +64,11 @@ package
 		{
 			_relyTreeExporter.tryExportRelyInfo();
 			_pluginLogger.checkWarningAndLog();
+		}
+		
+		private function onClickCheckFlip(evt:Event): void
+		{
+			_functionCheck.CheckFlip();
 		}
 		
 		public function dispose():void

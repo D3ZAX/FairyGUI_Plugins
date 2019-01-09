@@ -19,6 +19,7 @@
     <classEntry path="ExportRelyTree"/>
     <classEntry path="StringUtil"/>
     <classEntry path="PluginLogger"/>
+    <classEntry path="FunctionCheck"/>
   </includeClasses>
   <includeResources/>
   <namespaceManifests/>
