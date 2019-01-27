@@ -75,7 +75,7 @@ package {
 			if (fileContent) {
 				var comSettings: Object = JSON.parse(fileContent);
 				if (comSettings.buttonClickSound != "") {
-					comSounds.push(comSettings.buttonClickSound);
+					comSounds.push(comSettings.buttonClickSound.substr(5));
 				}
 			}
 
@@ -157,7 +157,7 @@ package {
 			// Read single component rely info and record rely info
 			this._lastOperate = "Read single component rely info and record rely info";
 			for each (var compInfo: Object in comInfoDic) {
-				recursionToSetRelyTreeOfComponent(compInfo, comInfoDic, txInfoDic, packageIdToData, comRelyDic);
+				recursionToSetRelyTreeOfComponent(compInfo, comInfoDic, txInfoDic, soundInfoDic, packageIdToData, comRelyDic);
 			}
 			this._lastRunningFunc = "exportRelyInfo()";
 			this._lastVisitPack = null
@@ -237,12 +237,17 @@ package {
 //			}
 		}
 		
-		public function recursionToSetRelyTreeOfComponent(componentInfo: Object, comInfoDic: Dictionary, txInfoDic: Dictionary, packageIdToData: Dictionary, comRelyDic: Object): void {
+		public function recursionToSetRelyTreeOfComponent(componentInfo: Object, comInfoDic: Dictionary, txInfoDic: Dictionary, soundInfoDic: Dictionary, packageIdToData: Dictionary, comRelyDic: Object): void {
 			// log
 			this._lastVisitComType = "component";
 			this._lastVisitCom = componentInfo.name;
 			this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
-			this._lastRunningFunc = "recursionToSetRelyTreeOfComponent()";			
+			this._lastRunningFunc = "recursionToSetRelyTreeOfComponent() displayList";
+			
+			var item: XML;
+			var url: String;
+			var startIndex: int;
+			var resId: String;
 			if (!comRelyDic[componentInfo.name]) {
 				var exportObj: Object = new Object();
 				exportObj.dicTexture = new Object();
@@ -255,7 +260,7 @@ package {
 				var componentXML:XML = new XML(FileTool.readFile(componentInfo.path));
 				var displayListXMLList:XMLList = componentXML.child("displayList").children();
 
-				for each (var item:XML in displayListXMLList) {
+				for each (item in displayListXMLList) {
 					// log
 					this._lastVisitComType = "component";
 					this._lastVisitCom = componentInfo.name;
@@ -287,16 +292,18 @@ package {
 							}
 							var urlXMLList: XMLList = item.attribute(attrName);
 							if (urlXMLList) {
-								var url: String = urlXMLList.toString();
-								var startIndex: int = 5;
-								var resId: String = url.substr(startIndex);
+								url = urlXMLList.toString();
+								startIndex = 5;
 								if (comInfoDic[resId]) {
-									recursionToSetRelyTreeOfComponent(comInfoDic[resId], comInfoDic, txInfoDic, packageIdToData, comRelyDic);
+									recursionToSetRelyTreeOfComponent(comInfoDic[resId], comInfoDic, txInfoDic, soundInfoDic, packageIdToData, comRelyDic);
 									for (var packageId: String in comRelyDic[comInfoDic[resId].name].dicPackage) {
 										exportObj.dicPackage[packageId] = true;
 									}
 									for (var texId: String in comRelyDic[comInfoDic[resId].name].dicTexture) {
 										exportObj.dicTexture[texId] = true;
+									}
+									for (var soundId: String in comRelyDic[comInfoDic[resId].name].dicSound) {
+										exportObj.dicSound[soundId] = true;
 									}
 									if (componentInfo.export && !comInfoDic[resId].export) {
 										this.logWarning(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[resId].name, packageIdToData[comInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
@@ -321,7 +328,7 @@ package {
 							break;
 						case "component":
 							var comId: String = (item.@pkg != undefined ? item.attribute("pkg").toString() : componentInfo.packageId) + item.attribute("src").toString();
-							recursionToSetRelyTreeOfComponent(comInfoDic[comId], comInfoDic, txInfoDic, packageIdToData, comRelyDic);
+							recursionToSetRelyTreeOfComponent(comInfoDic[comId], comInfoDic, txInfoDic, soundInfoDic, packageIdToData, comRelyDic);
 							for (var pId: String in comRelyDic[comInfoDic[comId].name].dicPackage) {
 								exportObj.dicPackage[pId] = true;
 							}
@@ -345,6 +352,36 @@ package {
 							break;
 					}
 				}
+
+				// log
+				this._lastRunningFunc = "recursionToSetRelyTreeOfComponent() transition";
+
+				var transitionXMLList:XMLList = componentXML.child("transition").children();
+				for each (item in transitionXMLList) {
+					this._lastVisitComType = "component";
+					this._lastVisitCom = componentInfo.name;
+					this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
+					if (item.attribute("type").toString() == "Sound") {
+						var value: String = item.attribute("value").toString();
+						var splitIndex: int = value.indexOf(",");
+						if (splitIndex >= 0) {
+							url = value.substr(startIndex, splitIndex - startIndex);
+						} else {
+							url = value;
+						}
+						startIndex = 5;
+						resId = url.substr(startIndex);
+						exportObj.dicSound[resId] = true;
+						exportObj.dicPackage[soundInfoDic[resId].packageId] = true;
+						
+						if (componentInfo.export && !soundInfoDic[resId].export) {
+							this.logWarning(StringUtil.Format("Warnning: Sound \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", soundInfoDic[resId].name, packageIdToData[soundInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+						}
+						
+						break;
+					}
+				}
+				
 				comRelyDic[componentInfo.name] = exportObj;
 			}
 		}
@@ -375,11 +412,11 @@ package {
 			this._lastRunningFunc = "getSoundResKey()";
 			var soundInfo: Object;
 			switch (_editor.project.type) {
-				case "egret":
-					soundInfo = soundInfoDic[sound.substr(5)];
+				case "Egret":
+					soundInfo = soundInfoDic[sound];
 					return packageIdToData[soundInfo.packageId].name + "@" + soundInfo.id;
 				default:
-					soundInfo = soundInfoDic[sound.substr(5)];
+					soundInfo = soundInfoDic[sound];
 					return packageIdToData[soundInfo.packageId].name + "@" + soundInfo.id;
 			}
 		}
