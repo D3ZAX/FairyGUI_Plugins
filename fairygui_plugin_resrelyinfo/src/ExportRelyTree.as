@@ -306,6 +306,7 @@ package {
 							if (urlXMLList) {
 								url = urlXMLList.toString();
 								startIndex = 5;
+								resId = url.substr(startIndex);
 								if (comInfoDic[resId]) {
 									recursionToSetRelyTreeOfComponent(comInfoDic[resId], comInfoDic, txInfoDic, soundInfoDic, packageIdToData, comRelyDic);
 									for (var packageId: String in comRelyDic[comInfoDic[resId].name].dicPackage) {
