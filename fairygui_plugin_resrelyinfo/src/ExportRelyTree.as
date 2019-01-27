@@ -9,6 +9,10 @@ package {
 	import fairygui.editor.plugin.IPublishHandler;
 
 	public class ExportRelyTree implements IPublishHandler{
+		private const resTypePackage: String = "package";
+		private const resTypeTexture: String = "texture";
+		private const resTypeSound: String = "sound";
+		
 		private var _editor: IFairyGUIEditor;
 		private var _pluginLogger: PluginLogger;
 		private var _lastRunningFunc: String;
@@ -148,6 +152,11 @@ package {
 								soundInfo.export = false;
 							}
 							
+							var soundResId: String = packageData.id + soundInfo.id;
+							if (comSounds.indexOf(soundResId) >= 0) {
+								soundInfo.isCommonRes = true;
+							}
+							
 							soundInfoDic[packageData.id + soundInfo.id] = soundInfo;
 							break;
 					}
@@ -205,6 +214,8 @@ package {
 					temArr = new Array();
 				}
 				delete exportObj.dicSound;
+				
+				delete exportObj.defaultSound;
 			}
 			
 			// Deal with common res
@@ -254,6 +265,7 @@ package {
 				exportObj.dicSound = new Object();
 				exportObj.dicPackage = new Object();
 				exportObj.dicPackage[componentInfo.packageId] = true;
+				exportObj.defaultSound = null;
 				
 				exportObj.pack = packageIdToData[componentInfo.packageId].name;
 				
@@ -273,8 +285,8 @@ package {
 							this._lastVisitCom = txInfoDic[textureId].name;
 							this._lastVisitPack = packageIdToData[txInfoDic[textureId].packageId].name;
 							
-							exportObj.dicTexture[textureId] = true;
-							exportObj.dicPackage[txInfoDic[textureId].packageId] = true;
+							this.relyRes(exportObj, textureId, 1, this.resTypeTexture);
+							this.relyRes(exportObj, txInfoDic[textureId].packageId, 1, this.resTypePackage);
 							if (componentInfo.export && !txInfoDic[textureId].export) {
 								this.logWarning(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[textureId].name, packageIdToData[txInfoDic[textureId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
 							}
@@ -297,13 +309,13 @@ package {
 								if (comInfoDic[resId]) {
 									recursionToSetRelyTreeOfComponent(comInfoDic[resId], comInfoDic, txInfoDic, soundInfoDic, packageIdToData, comRelyDic);
 									for (var packageId: String in comRelyDic[comInfoDic[resId].name].dicPackage) {
-										exportObj.dicPackage[packageId] = true;
+										this.relyRes(exportObj, packageId, comRelyDic[comInfoDic[resId].name].dicPackage[packageId], this.resTypePackage);
 									}
 									for (var texId: String in comRelyDic[comInfoDic[resId].name].dicTexture) {
-										exportObj.dicTexture[texId] = true;
+										this.relyRes(exportObj, texId, comRelyDic[comInfoDic[resId].name].dicTexture[texId], this.resTypeTexture);
 									}
 									for (var soundId: String in comRelyDic[comInfoDic[resId].name].dicSound) {
-										exportObj.dicSound[soundId] = true;
+										this.relyRes(exportObj, soundId, comRelyDic[comInfoDic[resId].name].dicSound[soundId], this.resTypeSound);
 									}
 									if (componentInfo.export && !comInfoDic[resId].export) {
 										this.logWarning(StringUtil.Format("Warnning: Component \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", comInfoDic[resId].name, packageIdToData[comInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
@@ -315,8 +327,8 @@ package {
 									this._lastVisitCom = txInfoDic[resId].name;
 									this._lastVisitPack = packageIdToData[txInfoDic[resId].packageId].name;
 									
-									exportObj.dicTexture[resId] = true;
-									exportObj.dicPackage[txInfoDic[resId].packageId] = true;
+									this.relyRes(exportObj, resId, 1, this.resTypeTexture);
+									this.relyRes(exportObj, txInfoDic[resId].packageId, 1, this.resTypePackage);
 									
 									if (componentInfo.export && !txInfoDic[resId].export) {
 										this.logWarning(StringUtil.Format("Warnning: Image \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", txInfoDic[resId].name, packageIdToData[txInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
@@ -330,19 +342,28 @@ package {
 							var comId: String = (item.@pkg != undefined ? item.attribute("pkg").toString() : componentInfo.packageId) + item.attribute("src").toString();
 							recursionToSetRelyTreeOfComponent(comInfoDic[comId], comInfoDic, txInfoDic, soundInfoDic, packageIdToData, comRelyDic);
 							for (var pId: String in comRelyDic[comInfoDic[comId].name].dicPackage) {
-								exportObj.dicPackage[pId] = true;
+								this.relyRes(exportObj, pId, comRelyDic[comInfoDic[comId].name].dicPackage[pId], this.resTypePackage);
 							}
 							for (var tId: String in comRelyDic[comInfoDic[comId].name].dicTexture) {
-								exportObj.dicTexture[tId] = true;
+								this.relyRes(exportObj, tId, comRelyDic[comInfoDic[comId].name].dicTexture[tId], this.resTypeTexture);
 							}
 							for (var sId: String in comRelyDic[comInfoDic[comId].name].dicSound) {
-								exportObj.dicSound[sId] = true;
+								this.relyRes(exportObj, sId, comRelyDic[comInfoDic[comId].name].dicSound[sId], this.resTypeSound);
 							}
 							
 							var buttons: XMLList = item.child("Button");
 							for each (var button:XML in buttons) {
 								if (button.@sound != undefined) {
-									exportObj.dicSound[button.attribute("sound").toString()] = true;
+									resId = button.attribute("sound").toString().substr(5);
+									if (!soundInfoDic[resId].isCommonRes) {
+										var defSound: String = comRelyDic[comInfoDic[comId].name].defaultSound;
+										if (defSound) {
+											this.relyRes(exportObj, defSound, -1, this.resTypeSound);
+											this.relyRes(exportObj, soundInfoDic[defSound].packageId, -1, this.resTypePackage);
+										}
+										this.relyRes(exportObj, resId, 1, this.resTypeSound);
+										this.relyRes(exportObj, soundInfoDic[resId].packageId, 1, this.resTypePackage);
+									}
 								}
 							}
 							
@@ -354,9 +375,35 @@ package {
 				}
 
 				// log
-				this._lastRunningFunc = "recursionToSetRelyTreeOfComponent() transition";
+				this._lastRunningFunc = "recursionToSetRelyTreeOfComponent() Button";
+				this._lastVisitComType = "component";
+				this._lastVisitCom = componentInfo.name;
+				this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
 
-				var transitionXMLList:XMLList = componentXML.child("transition").children();
+				var buttonXMLList:XMLList = componentXML.child("Button");
+				for each (item in buttonXMLList) {
+					if (item.@sound != undefined) {
+						url = item.attribute("sound").toString();
+						
+						startIndex = 5;
+						resId = url.substr(startIndex);
+						if (!soundInfoDic[resId].isCommonRes) {
+							this.relyRes(exportObj, resId, 1, this.resTypeSound);
+							this.relyRes(exportObj, soundInfoDic[resId].packageId, 1, this.resTypePackage);
+							
+							if (componentInfo.export && !soundInfoDic[resId].export) {
+								this.logWarning(StringUtil.Format("Warnning: Sound \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", soundInfoDic[resId].name, packageIdToData[soundInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+							}
+							
+							exportObj.defaultSound = resId;
+						}
+					}
+				}
+				
+				// log
+				this._lastRunningFunc = "recursionToSetRelyTreeOfComponent() transition";
+				
+				var transitionXMLList: XMLList = componentXML.child("transition").children();
 				for each (item in transitionXMLList) {
 					this._lastVisitComType = "component";
 					this._lastVisitCom = componentInfo.name;
@@ -371,14 +418,14 @@ package {
 						}
 						startIndex = 5;
 						resId = url.substr(startIndex);
-						exportObj.dicSound[resId] = true;
-						exportObj.dicPackage[soundInfoDic[resId].packageId] = true;
-						
-						if (componentInfo.export && !soundInfoDic[resId].export) {
-							this.logWarning(StringUtil.Format("Warnning: Sound \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", soundInfoDic[resId].name, packageIdToData[soundInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+						if (!soundInfoDic[resId].isCommonRes) {
+							this.relyRes(exportObj, resId, 1, this.resTypeSound);
+							this.relyRes(exportObj, soundInfoDic[resId].packageId, 1, this.resTypePackage);
+							
+							if (componentInfo.export && !soundInfoDic[resId].export) {
+								this.logWarning(StringUtil.Format("Warnning: Sound \"{0}\" in Package \"{1}\" relyed by Component \"{2}\" in Package \"{3}\" is not set to export!", soundInfoDic[resId].name, packageIdToData[soundInfoDic[resId].packageId].name, componentInfo.name, packageIdToData[componentInfo.packageId].name));
+							}
 						}
-						
-						break;
 					}
 				}
 				
@@ -410,6 +457,7 @@ package {
 		
 		public function getSoundResKey(sound: String, packageIdToData: Dictionary, soundInfoDic: Dictionary): String {
 			this._lastRunningFunc = "getSoundResKey()";
+			this._lastVisitPack = sound;
 			var soundInfo: Object;
 			switch (_editor.project.type) {
 				case "Egret":
@@ -430,6 +478,38 @@ package {
 				callback.callOnFail();
 			}
 			return true;
+		}
+		
+		private function relyRes(relyDic: Object, resId: String, relyNum: int, resType: String): void {
+			switch(resType) {
+				case this.resTypePackage:
+					if (!relyDic.dicPackage[resId]) {
+						relyDic.dicPackage[resId] = 0;
+					}
+					relyDic.dicPackage[resId] += relyNum;
+					if (relyDic.dicPackage[resId] <= 0) {
+						delete relyDic.dicPackage[resId];
+					}
+					break;
+				case this.resTypeTexture:
+					if (!relyDic.dicTexture[resId]) {
+						relyDic.dicTexture[resId] = 0;
+					}
+					relyDic.dicTexture[resId] += relyNum;
+					if (relyDic.dicTexture[resId] <= 0) {
+						delete relyDic.dicTexture[resId];
+					}
+					break;
+				case this.resTypeSound:
+					if (!relyDic.dicSound[resId]) {
+						relyDic.dicSound[resId] = 0;
+					}
+					relyDic.dicSound[resId] += relyNum;
+					if (relyDic.dicSound[resId] <= 0) {
+						delete relyDic.dicSound[resId];
+					}
+					break;
+			}
 		}
 		
 		private function logFile(str: String): void {
