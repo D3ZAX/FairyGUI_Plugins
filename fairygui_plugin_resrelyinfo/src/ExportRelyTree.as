@@ -458,7 +458,6 @@ package {
 		
 		public function getSoundResKey(sound: String, packageIdToData: Dictionary, soundInfoDic: Dictionary): String {
 			this._lastRunningFunc = "getSoundResKey()";
-			this._lastVisitPack = sound;
 			var soundInfo: Object;
 			switch (_editor.project.type) {
 				case "Egret":
