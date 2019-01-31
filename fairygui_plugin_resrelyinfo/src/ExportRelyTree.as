@@ -410,15 +410,15 @@ package {
 					this._lastVisitCom = componentInfo.name;
 					this._lastVisitPack = packageIdToData[componentInfo.packageId].name;
 					if (item.attribute("type").toString() == "Sound") {
-						var value: String = item.attribute("value").toString();
-						var splitIndex: int = value.indexOf(",");
-						if (splitIndex >= 0) {
-							url = value.substr(startIndex, splitIndex - startIndex);
-						} else {
-							url = value;
-						}
+						url = item.attribute("value").toString();
+						var splitIndex: int = url.indexOf(",");
 						startIndex = 5;
-						resId = url.substr(startIndex);
+						if (splitIndex >= 0) {
+							resId = url.substr(startIndex, splitIndex - startIndex);
+						} else {
+							resId = url.substr(startIndex);
+						}
+						this._lastVisitPack = url.substr(startIndex, splitIndex - startIndex);
 						if (!soundInfoDic[resId].isCommonRes) {
 							this.relyRes(exportObj, resId, 1, this.resTypeSound);
 							this.relyRes(exportObj, soundInfoDic[resId].packageId, 1, this.resTypePackage);
