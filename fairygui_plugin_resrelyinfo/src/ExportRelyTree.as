@@ -21,6 +21,8 @@ package {
 		private var _lastVisitCom: String;
 		private var _lastVisitComType: String;
 		
+		private var _isTask: Boolean;
+		
 		public function ExportRelyTree(editor: IFairyGUIEditor, pluginLogger: PluginLogger) {
 			_editor = editor;
 			this._pluginLogger = pluginLogger;
